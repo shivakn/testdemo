@@ -1,0 +1,1244 @@
+var CmdListModelCollection = (function (_super) {
+
+    __extends(CmdListModelCollection, _super);    
+
+    function CmdListModelCollection(options) {
+        var self = this;
+        CmdListModelCollection.__super__.constructor.call(this, options);
+        
+        this.collectionUrl = '/rest/tema-commands/filterview/';                
+        this.collectionSearchString = '';
+        this.templateUrl = 'Components/tpl/cmd/CmdList.htm';
+        this.sortBy = ko.observable('commanD_VALUE');
+        this.sortType = ko.observable('asc');
+        this.mainModel = options.mainModel;                                     // Feedback Model                                
+        this.cmdTab = options.cmdTab;                                           // Tab with Treeview
+                
+        this.isNewFeedbackCmd = ko.observable(true);                            // Check for new Feedback Cmd              
+
+        this.selectedObjectValue = ko.observable('');                           // Object value selected
+        this.selectedObjectString = ko.observable('');                          // Object string selected
+        this.selectedCommandValue = ko.observable('');                          // Command value selected        
+        this.selectedCommandString = ko.observable('');                         // Command string selected     
+        
+        this.updating = ko.observable(false);                                   // Flag for new or update
+        this.comboFloorMask = new ComboModel(this.getFloorMaskOptions());
+        this.comboFloorMask.addFilterField('Page', "0");
+        this.cmbEbiCamera = new ComboModel(this.getDvmCamOptions('cmbebicamera')); 
+        this.cmbDvmCamPreset = new ComboModel(this.getDvmCamPresetOptions('cmbdvmcampreset')); 
+        this.cmbDvmSendCamPreset = new ComboModel(this.getDvmCamPresetOptions('cmbdvmsendcampreset')); 
+        
+        this.comboDisplayTypes = new ComboModel(this.getDisplayTypeOptions('ebidisplaytypecombo'));  
+        
+        this.cmbPointValue = new ComboModel(this.getTypeInfoFbkOptions('cmbpointvalue')); 
+        
+        this.cmbDvmStation = new ComboModel(this.getComboOptions('cmbdvmstation', CNST_WS_MODEL_URL, CNST_WS_COMBO_URL,
+            CNST_WS_FIELDS, CNST_WS_KEY, 'description', 'description', 'asc', true, true, ''));        
+        this.cmbPoint1 = new ComboModel(this.getPointOptions('cmbpoint1'));
+        this.cmbCommand1 = new ComboModel(this.getCommandOptions('cmbcommand1'));
+        this.cmbPoint2 = new ComboModel(this.getPointOptions('cmbpoint2'));
+        this.cmbCommand2 = new ComboModel(this.getCommandOptions('cmbcommand2'));
+        this.cmbPoint3 = new ComboModel(this.getPointOptions('cmbpoint3'));
+        this.cmbCommand3 = new ComboModel(this.getCommandOptions('cmbcommand3'));
+        this.cmbPoint4 = new ComboModel(this.getPointOptions('cmbpoint4'));
+        this.cmbCommand4 = new ComboModel(this.getCommandOptions('cmbcommand4'));              
+        this.cmbThreatLevel = new ComboModel(this.getComboOptions('cmbthreatlevel', CNST_TL_MODEL_URL, CNST_TL_COLLECTION_URL,
+            CNST_TL_FIELDS, CNST_TL_KEY, 'description', 'description', 'asc', true, true, ''));
+                
+        // Check for cmb point
+        this.visiblePoint = ko.observable(false);                               
+        this.visibleEBICamera = ko.observable(false);
+        this.visibleDisplay = ko.observable(false);
+        this.visibleLang = ko.observable(false);
+        this.visibleThreatLevel = ko.observable(false);
+
+        // Visible for DVM 
+        this.visibleDVM = ko.observable(false);
+        this.visibleDVMStartEvent = ko.observable(false);
+        this.visibleDVMCamPresent = ko.observable(false);
+        this.visibleDVMSendCam = ko.observable(false);
+
+        //Visible for floor map 
+        self.visibleFloorMap = ko.observable(false);
+        self.visibleFloorMap(false);
+
+        // Mapping All Fields
+        this.mappingFields = CNST_FBKCMD_MAPPING;
+        
+        this.setFeedbackCmdModel(false);        
+    }       
+
+    // Initialize command dropdown
+    CmdListModelCollection.prototype.getCommandOptions = function (uiId) {
+        return {
+            uiId: uiId,
+            modelUrl: CNST_CMD_MODEL_URL,
+            collectionUrl: '/rest/tema-commands/filterview/',
+            columns: CNST_CMD_COMBO_FIELDS,
+            idCol: CNST_CMD_KEY,
+            idCols: 'typology,commanD_VALUE',
+            selCol: 'lngDescr',
+            viewCol: 'lngDescr',
+            sortColumn: CNST_CMD_KEY,            
+            emptyValue: true            
+        };        
+    };
+
+    CmdListModelCollection.prototype.getFloorMaskOptions = function () {
+        return {
+            name: 'Dropdown',
+            uiId: 'Floormaskcombo',
+            modelUrl: CNST_GLOBALACCESSMASK_MODEL_URL,
+            collectionUrl: '/rest/tema-acfloormaps/filterview/', // CNST_FB_COMBO_URL,
+            columns: CNST_FLRTYPE_FIELDS,
+            idCol: 'maP_ID',
+            viewCol: 'description',
+            sortType: 'asc',
+            enabled: this.enableControls,
+            emptyValue: true
+        };
+    };
+
+    CmdListModelCollection.prototype.getDvmCamOptions = function (uiId) {
+        return {
+            uiId: uiId,
+            modelUrl: CNST_DC_MODEL_URL,
+            collectionUrl: '/rest/tema-dvmcfgs/filterview/',
+            columns: CNST_DC_FIELDS,
+            idCol: 'camerA_NAME',
+            viewCol: 'camerA_DESCRIPTION',
+            sortColumn: 'camerA_DESCRIPTION',            
+            emptyValue: true            
+        };        
+    };    
+
+    // Initialize dvm cam preset dropdown
+    CmdListModelCollection.prototype.getDvmCamPresetOptions = function (uiId) {
+        return {
+            uiId: uiId,
+            modelUrl: CNST_DPC_MODEL_URL,
+            collectionUrl: '/rest/tema-dvmpresetcfgs/filtertable/',
+            columns: CNST_DPC_FIELDS,
+            idCol: 'iD_PRESET',
+            idCols: 'camerA_NAME,iD_PRESET',            
+            viewCol: 'preseT_NAME',
+            sortColumn: 'preseT_NAME',            
+            emptyValue: true            
+        };        
+    };
+
+    // Initialize display type dropdown
+    CmdListModelCollection.prototype.getDisplayTypeOptions = function (uiId) {
+        return {
+	    name:'SelectDropdown',
+            uiId: uiId,
+            source: CNST_EBI_DISPLAY_TYPES,
+            columns: CNST_I18N_COLUMNS_FIELDS,
+            idCol: 'value',
+            viewCol: 'label',
+            sortColumn: 'label',
+            hiddenHead: true,
+	    hiddenFoot: true,
+            noGetModel: true,
+        };
+    };
+
+    // Initialize type info fbk dropdown (filter)
+    CmdListModelCollection.prototype.getTypeInfoFbkOptions = function (uiId) {
+        return {
+            uiId: uiId,
+            modelUrl: CNST_TIF_MODEL_URL,
+            collectionUrl: '/rest/tema-typeinfofbks/filterview/',
+            columns: CNST_TIF_FIELDS,
+            idCol: 'iD_TYPE_INFO',
+            viewCol: 'lngDescr',
+            sortColumn: 'iD_TYPE_INFO'
+        };
+    };
+
+    // Initialize dvm cam preset dropdown (filter)
+    CmdListModelCollection.prototype.getPointOptions = function (uiId) {
+        return {
+            uiId: uiId,            
+            modelUrl: CNST_SO_MODEL_URL,
+            collectionUrl: '/rest/tema-objects/filterview/',
+            columns: CNST_SO_COMBO_FIELDS,
+            idCol: 'object',
+            viewCol: 'description',
+            sortColumn: 'description'
+        };
+    };
+
+    CmdListModelCollection.prototype.wireUpValidations = function () { };
+
+    CmdListModelCollection.prototype.defineComputedObservablesForModel = function () {
+        var self = this;      
+
+        self.ComputedCmd_param = ko.pureComputed({
+            read: function () {
+                
+                if (this.model && this.model.cmD_PARAM) {
+                    return self.model.cmD_PARAM();
+                } else return '';
+            },
+            write: function (newValue) {
+               // alert(newValue);
+                if (self.model) {
+                    if (self.model.cmD_PARAM == undefined)
+                        self.model.cmD_PARAM = ko.observable();
+                    self.model.cmD_PARAM(newValue);
+                }
+            },
+            owner: this
+        });
+
+        self.ComputedOrdeR_ID = ko.pureComputed({
+            read: function () {
+                if (this.model && this.model.ordeR_ID) {
+                    return this.model.ordeR_ID();
+                } else {
+                    return 0;
+                }
+            },
+            write: function (newValue) {
+                if (this.model) {
+                    if (this.model.ordeR_ID == undefined) {
+                        this.model.ordeR_ID = ko.observable();
+                    }
+                    this.model.ordeR_ID(newValue);
+                }
+            },
+            owner: this
+        });
+
+        self.ComputedDelaY_TIME = ko.pureComputed({
+            read: function () {
+                if (this.model && this.model.delaY_TIME) {
+                    return this.model.delaY_TIME();                        
+                } else return '';
+            },
+            write: function (newValue) {
+                if (this.model) {
+                    if (this.model.delaY_TIME == undefined) {
+                        this.model.delaY_TIME = ko.observable();
+                    }
+                    this.model.delaY_TIME(newValue);
+                }
+            },
+            owner: this
+        });
+        
+        self.ComputedObjecT_KEY = ko.pureComputed({
+            read: function () {
+                if (this.model && this.model.objecT_KEY) {
+                    return this.model.objecT_KEY();
+                } else { return ''; }
+            },
+            write: function (newValue) {
+                if (this.model) {
+                    if (this.model.objecT_KEY == undefined) {
+                        this.model.objecT_KEY = ko.observable();
+                    }
+                    this.model.objecT_KEY(newValue);
+                    if (newValue != '') {
+                        this.cmbDvmSendCamPreset.addFilterField('CAMERA_NAME', newValue);
+                    }
+                }
+            },
+            owner: this
+        });
+
+        self.ComputedCmD_ID = ko.pureComputed({
+            read: function () {
+                if (this.model && this.model.cmD_ID) {
+                    return this.model.cmD_ID();
+                } else { return ''; }
+            },
+            write: function (newValue) {
+                if (this.model) {
+                    if (this.model.cmD_ID == undefined) {
+                        this.model.cmD_ID = ko.observable();
+                    }
+                    this.model.cmD_ID(newValue);
+                }
+            },
+            owner: this
+        });
+
+        self.ComputedLngDescr = ko.pureComputed({
+            read: function () {
+                if (this.model && this.model.lngDescr) {
+                    return this.model.lngDescr();
+                } else { return ''; }
+            },
+            write: function (newValue) {
+                if (this.model) {
+                    if (this.model.lngDescr == undefined) {
+                        this.model.lngDescr = ko.observable();
+                    }
+                    this.model.lngDescr(newValue);
+                }
+            },
+            owner: this
+        });
+
+        self.ComputedCamerA_NAME = ko.pureComputed({
+            read: function () {
+                if (this.model && this.model.camerA_NAME) {
+                    return this.model.camerA_NAME();
+                } else return '';
+            },
+            write: function (newValue) {
+                if (this.model) {
+                    if (this.model.camerA_NAME == undefined) {
+                        this.model.camerA_NAME = ko.observable();
+                    }
+                    this.model.camerA_NAME(newValue);
+                    if (newValue != '') {
+                        this.cmbDvmCamPreset.addFilterField('camerA_NAME',newValue);
+                    }                        
+                }
+            },
+            owner: this
+        });
+
+        self.ComputedDisplaY_NAME = ko.pureComputed({
+            read: function () {
+                if (this.model && this.model.displaY_NAME) {
+                    return this.model.displaY_NAME();
+                } else return '';
+            },
+            write: function (newValue) {
+                if (this.model) {
+                    if (this.model.displaY_NAME == undefined) {
+                        this.model.displaY_NAME = ko.observable();
+                    }
+                    this.model.displaY_NAME(newValue);
+                }
+            },
+            owner: this
+        });
+
+        self.ComputedDisplaY_TYPE = ko.pureComputed({
+            read: function () {
+                if (this.model && this.model.displaY_TYPE) {
+                    return this.model.displaY_TYPE();
+                } else return '';
+            },
+            write: function (newValue) {
+                if (this.model) {
+                    if (this.model.displaY_TYPE == undefined) {
+                        this.model.displaY_TYPE = ko.observable();
+                    }
+                    this.model.displaY_TYPE(newValue);
+		    if(newValue !== 2){
+			this.ComputedDisplaY_NAME('')
+		    }
+                }
+            },
+            owner: this
+        });
+
+        self.ComputedDuration = ko.pureComputed({
+            read: function () {
+                if (this.model && this.model.duration) {
+                    return this.model.duration();
+                } else return '';
+            },
+            write: function (newValue) {
+                if (this.model) {
+                    if (this.model.duration == undefined) {
+                        this.model.duration = ko.observable();
+                    }
+                    this.model.duration(newValue);
+                }
+            },
+            owner: this
+        });
+
+        self.ComputedPrerecording = ko.pureComputed({
+            read: function () {
+                if (this.model && this.model.prerecording) {
+                    return this.model.prerecording();
+                } else return '';
+            },
+            write: function (newValue) {
+                if (this.model) {
+                    if (this.model.prerecording == undefined) {
+                        this.model.prerecording = ko.observable();
+                    }
+                    this.model.prerecording(newValue);
+                }
+            },
+            owner: this
+        });
+
+        self.ComputedID_TYPE_INFO = ko.pureComputed({
+            read: function () {
+                if (this.model && this.model.iD_TYPE_INFO) {
+                    return this.model.iD_TYPE_INFO();
+                } else return '';
+            },
+            write: function (newValue) {
+                if (this.model) {
+                    if (this.model.iD_TYPE_INFO == undefined) {
+                        this.model.iD_TYPE_INFO = ko.observable();
+                    }
+                    this.model.iD_TYPE_INFO(newValue);
+                }
+            },
+            owner: this
+        });
+
+        self.ComputedStation = ko.pureComputed({
+            read: function () {
+                if (this.model && this.model.station) {
+                    return this.model.station();
+                } else return '';
+            },
+            write: function (newValue) {
+                if (this.model) {
+                    if (this.model.station == undefined) {
+                        this.model.station = ko.observable();
+                    }
+                    this.model.station(newValue);
+                }
+            },
+            owner: this
+        });
+
+        self.ComputedMonitor = ko.pureComputed({
+            read: function () {
+                if (this.model && this.model.monitor) {
+                    return this.model.monitor();
+                } else return '';
+            },
+            write: function (newValue) {
+                if (this.model) {
+                    if (this.model.monitor == undefined) {
+                        this.model.monitor = ko.observable();
+                    }
+                    this.model.monitor(newValue);
+                }
+            },
+            owner: this
+        });
+
+        self.ComputedID_TAB = ko.pureComputed({
+            read: function () {
+                if (this.model && this.model.iD_TAB) {
+                    return this.model.iD_TAB();
+                } else return 0;
+            },
+            write: function (newValue) {
+                if (this.model) {
+                    if (this.model.iD_TAB == undefined) {
+                        this.model.iD_TAB = ko.observable();
+                    }
+                    this.model.iD_TAB(newValue);
+                    this.resetVisibleFields();
+                }
+            },
+            owner: this
+        });
+
+        self.ComputedID_PRESET = ko.pureComputed({
+            read: function () {
+                if (this.model && this.model.iD_TAB) {
+                    return this.model.iD_PRESET();
+                } else return 0;
+            },
+            write: function (newValue) {
+                if (this.model) {
+                    if (this.model.iD_PRESET == undefined) {
+                        this.model.iD_PRESET = ko.observable();
+                    }
+                    this.model.iD_PRESET(newValue);
+                }
+            },
+            owner: this
+        });
+
+        self.ComputedPoinT1 = ko.pureComputed({
+            read: function () {
+                if (this.model && this.model.poinT1) {
+                    return this.model.poinT1();
+                } else { return ''; }
+            },
+            write: function (newValue) {
+                if (this.model) {
+                    if (this.model.poinT1 == undefined) {
+                        this.model.poinT1 = ko.observable();
+                    }
+                    this.model.poinT1(newValue);
+                    // Filter typology on commands
+                    if (this.cmbPoint1.selectedRow())
+                        this.cmbCommand1.addFilterField('TYPOLOGY', this.cmbPoint1.selectedRow()['typology']);
+                }
+            },
+            owner: this
+        });
+
+        self.ComputedCommanD1 = ko.pureComputed({
+            read: function () {
+                if (this.model && this.model.commanD1) {
+                    return self.model.commanD1();
+                } else { return ''; }
+            },
+            write: function (newValue) {
+                if (this.model) {  
+                    if (this.model.commanD1 == undefined) {
+                        this.model.commanD1 = ko.observable();
+                    }
+                    this.model.commanD1(newValue);
+                    // Set label 
+                    if (this.cmbCommand1.selectedRow()) {
+                        this.ComputedLabeL1(this.cmbCommand1.selectedRow()['lngDescr']);
+                        this.ComputedEbI_PARAM1(this.cmbCommand1.selectedRow()['ebI_PARAMETER']);
+                        this.ComputedEbI_VALUE1(this.cmbCommand1.selectedRow()['ebI_VALUE']);
+                    }                        
+                }
+            },
+            owner: this
+        });
+
+        self.ComputedEbI_PARAM1 = ko.pureComputed({
+            read: function () {
+                if (this.model && this.model.ebI_PARAM1) {                    
+                    return this.model.ebI_PARAM1();
+                } else return '';
+            },
+            write: function (newValue) {
+                if (this.model) {
+                    if (this.model.ebI_PARAM1 == undefined) {
+                        this.model.ebI_PARAM1 = ko.observable();
+                    }
+                    this.model.ebI_PARAM1(newValue);
+                }
+            },
+            owner: this
+        });
+
+        self.ComputedEbI_VALUE1 = ko.pureComputed({
+            read: function () {
+                if (this.model && this.model.ebI_VALUE1) {
+                    return this.model.ebI_VALUE1();
+                } else return '';
+            },
+            write: function (newValue) {
+                if (this.model) {  
+                    if (this.model.ebI_VALUE1 == undefined) {
+                        this.model.ebI_VALUE1 = ko.observable();
+                    }
+                    this.model.ebI_VALUE1(newValue);
+                }
+            },
+            owner: this
+        });
+
+        self.ComputedLabeL1 = ko.pureComputed({
+            read: function () {
+                if (this.model && this.model.labeL1) {
+                    return this.model.labeL1();
+                } else { return ''; }
+            },
+            write: function (newValue) {
+                if (this.model) {
+                    if (this.model.labeL1 == undefined) {
+                        this.model.labeL1 = ko.observable();
+                    }
+                    this.model.labeL1(newValue);
+                }
+            },
+            owner: this
+        });
+
+        self.ComputedPoinT2 = ko.pureComputed({
+            read: function () {
+                if (this.model && this.model.poinT2) {
+                    return this.model.poinT2();
+                } else { return ''; }
+            },
+            write: function (newValue) {
+                if (this.model) {
+                    if (this.model.poinT2 == undefined) {
+                        this.model.poinT2 = ko.observable();
+                    }
+                    this.model.poinT2(newValue);
+                    // Filter typology on commands
+                    if (this.cmbPoint2.selectedRow())
+                        this.cmbCommand2.addFilterField('TYPOLOGY', this.cmbPoint2.selectedRow()['typology']);
+                }
+            },
+            owner: this
+        });
+
+        self.ComputedCommanD2 = ko.pureComputed({
+            read: function () {
+                if (this.model && this.model.commanD2) {
+                    return self.model.commanD2();
+                } else { return ''; }
+            },
+            write: function (newValue) {
+                if (this.model) {
+                    if (this.model.commanD2 == undefined) {
+                        this.model.commanD2 = ko.observable();
+                    }
+                    this.model.commanD2(newValue);
+                    // Set label 
+                    if (this.cmbCommand2.selectedRow()) {
+                        this.ComputedLabeL2(this.cmbCommand2.selectedRow()['lngDescr']);
+                        this.ComputedEbI_PARAM2(this.cmbCommand2.selectedRow()['ebI_PARAMETER']);
+                        this.ComputedEbI_VALUE2(this.cmbCommand2.selectedRow()['ebI_VALUE']);
+                    }
+                        
+                }
+            },
+            owner: this
+        });
+
+        self.ComputedEbI_PARAM2 = ko.pureComputed({
+            read: function () {
+                if (this.model && this.model.ebI_PARAM2) {
+                    return this.model.ebI_PARAM2();
+                } else return '';
+            },
+            write: function (newValue) {
+                if (this.model) {
+                    if (this.model.ebI_PARAM2 == undefined) {
+                        this.model.ebI_PARAM2 = ko.observable();
+                    }
+                    this.model.ebI_PARAM2(newValue);
+                }
+            },
+            owner: this
+        });
+
+        self.ComputedEbI_VALUE2 = ko.pureComputed({
+            read: function () {
+                if (this.model && this.model.ebI_VALUE2) {
+                    return this.model.ebI_VALUE2();
+                } else return '';
+            },
+            write: function (newValue) {
+                if (this.model) {
+                    if (this.model.ebI_VALUE2 == undefined) {
+                        this.model.ebI_VALUE2 = ko.observable();
+                    }
+                    this.model.ebI_VALUE2(newValue);
+                }
+            },
+            owner: this
+        });
+
+        self.ComputedLabeL2 = ko.pureComputed({
+            read: function () {
+                if (this.model && this.model.labeL2) {
+                    return this.model.labeL2();
+                } else { return ''; }
+            },
+            write: function (newValue) {
+                if (this.model) {
+                    if (this.model.labeL2 == undefined) {
+                        this.model.labeL2 = ko.observable();
+                    }
+                    this.model.labeL2(newValue);
+                }
+            },
+            owner: this
+        });
+
+        self.ComputedPoinT3 = ko.pureComputed({
+            read: function () {
+                if (this.model && this.model.poinT3) {
+                    return this.model.poinT3();
+                } else { return ''; }
+            },
+            write: function (newValue) {
+                if (this.model) {
+                    if (this.model.poinT3 == undefined) {
+                        this.model.poinT3 = ko.observable();
+                    }
+                    this.model.poinT3(newValue);
+                    // Filter typology on commands
+                    if (this.cmbPoint3.selectedRow())
+                        this.cmbCommand3.addFilterField('TYPOLOGY', this.cmbPoint3.selectedRow()['typology']);
+                }
+            },
+            owner: this
+        });
+
+        self.ComputedCommanD3 = ko.pureComputed({
+            read: function () {
+                if (this.model && this.model.commanD3) {
+                    return self.model.commanD3();
+                } else { return ''; }
+            },
+            write: function (newValue) {
+                if (this.model && this.model.commanD3) {
+                    this.model.commanD3(newValue);
+                    // Set label 
+                    if (this.cmbCommand3.selectedRow()) {
+                        this.ComputedLabeL3(this.cmbCommand3.selectedRow()['lngDescr']);
+                        this.ComputedEbI_PARAM3(this.cmbCommand3.selectedRow()['ebI_PARAMETER']);
+                        this.ComputedEbI_VALUE3(this.cmbCommand3.selectedRow()['ebI_VALUE']);
+                    }                        
+                }
+            },
+            owner: this
+        });
+
+        self.ComputedEbI_PARAM3 = ko.pureComputed({
+            read: function () {
+                if (this.model && this.model.ebI_PARAM3) {
+                    return this.model.ebI_PARAM3();
+                } else return '';
+            },
+            write: function (newValue) {
+                if (this.model) {
+                    if (this.model.ebI_PARAM3 == undefined) {
+                        this.model.ebI_PARAM3 = ko.observable();
+                    }
+                    this.model.ebI_PARAM3(newValue);
+                }
+            },
+            owner: this
+        });
+
+        self.ComputedEbI_VALUE3 = ko.pureComputed({
+            read: function () {
+                if (this.model && this.model.ebI_VALUE3) {
+                    return this.model.ebI_VALUE3();
+                } else return '';
+            },
+            write: function (newValue) {
+                if (this.model) {
+                    if (this.model.ebI_VALUE3 == undefined) {
+                        this.model.ebI_VALUE3 = ko.observable();
+                    }
+                    this.model.ebI_VALUE3(newValue);
+                }
+            },
+            owner: this
+        });
+
+        self.ComputedLabeL3 = ko.pureComputed({
+            read: function () {
+                if (this.model && this.model.labeL3) {
+                    return this.model.labeL3();
+                } else { return ''; }
+            },
+            write: function (newValue) {
+                if (this.model) {
+                    if (this.model.labeL3 == undefined) {
+                        this.model.labeL3 = ko.observable();
+                    }
+                    this.model.labeL3(newValue);
+                }
+            },
+            owner: this
+        });
+
+        self.ComputedPoinT4 = ko.pureComputed({
+            read: function () {
+                if (this.model && this.model.poinT4) {
+                    return this.model.poinT4();
+                } else { return ''; }
+            },
+            write: function (newValue) {
+                if (this.model) {
+                    if (this.model.poinT4 == undefined) {
+                        this.model.poinT4 = ko.observable();
+                    }
+                    this.model.poinT4(newValue);
+                    // Filter typology on commands
+                    if (this.cmbPoint4.selectedRow())
+                        this.cmbCommand4.addFilterField('TYPOLOGY', this.cmbPoint4.selectedRow()['typology']);
+                }
+            },
+            owner: this
+        });
+
+        self.ComputedCommanD4 = ko.pureComputed({
+            read: function () {
+                if (this.model && this.model.commanD4) {
+                    return self.model.commanD4();
+                } else { return ''; }
+            },
+            write: function (newValue) {
+                if (this.model) {
+                    if (this.model.commanD4 == undefined) {
+                        this.model.commanD4 = ko.observable();
+                    }
+                    this.model.commanD4(newValue);
+                    // Set label 
+                    if (this.cmbCommand4.selectedRow()) {
+                        this.ComputedLabeL4(this.cmbCommand4.selectedRow()['lngDescr']);
+                        this.ComputedEbI_PARAM4(this.cmbCommand4.selectedRow()['ebI_PARAMETER']);
+                        this.ComputedEbI_VALUE4(this.cmbCommand4.selectedRow()['ebI_VALUE']);
+                    }                        
+                }
+            },
+            owner: this
+        });
+
+        self.ComputedEbI_PARAM4 = ko.pureComputed({
+            read: function () {
+                if (this.model && this.model.ebI_PARAM4) {
+                    return this.model.ebI_PARAM4();
+                } else return '';
+            },
+            write: function (newValue) {
+                if (this.model) {
+                    if (this.model.ebI_PARAM4 == undefined) {
+                        this.model.ebI_PARAM4 = ko.observable();
+                    }
+                    this.model.ebI_PARAM4(newValue);
+                }
+            },
+            owner: this
+        });
+
+        self.ComputedEbI_VALUE4 = ko.pureComputed({
+            read: function () {
+                if (this.model && this.model.ebI_VALUE4) {
+                    return this.model.ebI_VALUE4();
+                } else return '';
+            },
+            write: function (newValue) {
+                if (this.model) {
+                    if (this.model.ebI_VALUE4 == undefined) {
+                        this.model.ebI_VALUE4 = ko.observable();
+                    }
+                    this.model.ebI_VALUE4(newValue);
+                }
+            },
+            owner: this
+        });
+
+        self.ComputedLabeL4 = ko.pureComputed({
+            read: function () {
+                if (this.model && this.model.labeL4) {
+                    return this.model.labeL4();
+                } else { return ''; }
+            },
+            write: function (newValue) {
+                if (this.model) {
+                    if (this.model.labeL4 == undefined) {
+                        this.model.labeL4 = ko.observable();
+                    }
+                    this.model.labeL4(newValue);
+                }
+            },
+            owner: this
+        });
+
+        self.ComputedThreaT_LEVEL_ID = ko.pureComputed({
+            read: function () {
+                if (this.model && this.model.threaT_LEVEL_ID) {
+                    return this.model.threaT_LEVEL_ID();
+                } else { return ''; }
+            },
+            write: function (newValue) {
+                if (this.model) {
+                    if (this.model.threaT_LEVEL_ID == undefined) {
+                        this.model.threaT_LEVEL_ID = ko.observable();
+                    }
+                    this.model.threaT_LEVEL_ID(newValue);
+                }
+            },
+            owner: this
+        });
+
+        self.ComputedLanG1 = ko.pureComputed({
+            read: function () {
+                if (this.model && this.model.lanG1) {
+                    return this.model.lanG1();
+                } else { return ''; }
+            },
+            write: function (newValue) {
+                if (this.model) {
+                    if (this.model.lanG1 == undefined) {
+                        this.model.lanG1 = ko.observable();
+                    }
+                    this.model.lanG1(newValue);
+                }
+            },
+            owner: this
+        });
+
+        self.ComputedLanG2 = ko.pureComputed({
+            read: function () {
+                if (this.model && this.model.lanG2) {
+                    return this.model.lanG2();
+                } else { return ''; }
+            },
+            write: function (newValue) {
+                if (this.model) {
+                    if (this.model.lanG2 == undefined) {
+                        this.model.lanG2 = ko.observable();
+                    }
+                    this.model.lanG2(newValue);
+                }
+            },
+            owner: this
+        });
+
+        self.ComputedLanG3 = ko.pureComputed({
+            read: function () {
+                if (this.model && this.model.lanG3) {
+                    return this.model.lanG3();
+                } else { return ''; }
+            },
+            write: function (newValue) {
+                if (this.model) {
+                    if (this.model.lanG3 == undefined) {
+                        this.model.lanG3 = ko.observable();
+                    }
+                    this.model.lanG3(newValue);
+                }
+            },
+            owner: this
+        });
+
+        self.ComputedLanG4 = ko.pureComputed({
+            read: function () {
+                if (this.model && this.model.lanG4) {
+                    return this.model.lanG4();
+                } else { return ''; }
+            },
+            write: function (newValue) {
+                if (this.model && this.model.lanG4) {
+                    if (this.model.lanG4 == undefined) {
+                        this.model.lanG4 = ko.observable();
+                    }
+                    this.model.lanG4(newValue);
+                }
+            },
+            owner: this
+        });
+    };
+
+    CmdListModelCollection.prototype.mapJson = function (data)
+    {
+        var mapping = { 'include': CNST_FBKCMD_MAPPING };           // Map raw JSON to Knockout model
+        if (this.model) {
+            this.model = ko.mapping.fromJSON(data, {}, this.model);
+        } else {
+            this.model = ko.mapping.fromJSON(data, mapping);
+        }
+    };
+
+    CmdListModelCollection.prototype.preLoad = function ()
+    {
+        this.isNewFeedbackCmd(true);        
+        if (this.model)
+            this.emptyModel();                                                
+    };
+
+    CmdListModelCollection.prototype.load = function (data) {
+        var self = this;
+        self.preLoad();
+     
+        self.mapJson(data);
+                
+        self.postLoad();
+    };
+
+    CmdListModelCollection.prototype.postLoad = function ()
+    {
+        this.defineComputedObservablesForModel();
+        this.wireUpValidations();
+
+        if (this.ComputedOrdeR_ID() > 0) {
+            this.isNewFeedbackCmd(false);          
+        }                
+        // Get collection of Commands
+        if (this.ComputedObjecT_KEY() != null && this.ComputedObjecT_KEY() != '') {            
+            this.getCollection();
+        }
+        // Select Command 
+        if (this.ComputedCmD_ID() != null && this.ComputedCmD_ID() != '') {
+            for(var i = 0; i < this.models().length; i++) {
+                if (this.models()[i].commanD_VALUE == this.ComputedCmD_ID()) {
+                    this.selectCommand(this.models()[i]);
+                }
+            }
+        }
+
+        this.comboFloorMask._init(this.ComputedCmd_param);
+        this.cmbEbiCamera._init(this.ComputedCamerA_NAME);          // Camera Name        
+        this.cmbDvmCamPreset._init(this.ComputedID_PRESET);          // ID Preset        
+        this.comboDisplayTypes._init(this.ComputedDisplaY_TYPE);    // Display Type
+        this.cmbPointValue._init(this.ComputedID_TYPE_INFO);        // ID Type Info
+        this.cmbDvmSendCamPreset._init(this.ComputedID_PRESET);      // ID Preset (on command is SEND CAM)
+
+        this.cmbDvmStation._init(this.ComputedStation);             // Station
+
+        this.cmbPoint1._init(this.ComputedPoinT1);                  // Point 1
+        this.cmbCommand1._initNoLoad(this.ComputedCommanD1);
+        this.cmbPoint2._init(this.ComputedPoinT2);                  // Point 2
+        this.cmbCommand2._initNoLoad(this.ComputedCommanD2);  
+        this.cmbPoint3._init(this.ComputedPoinT3);                  // Point 3
+        this.cmbCommand3._initNoLoad(this.ComputedCommanD3);
+        this.cmbPoint4._init(this.ComputedPoinT4);                  // Point 4
+        this.cmbCommand4._initNoLoad(this.ComputedCommanD4);
+
+        this.cmbThreatLevel._init(this.ComputedThreaT_LEVEL_ID);    // Threat level ID 
+    };
+
+    CmdListModelCollection.prototype._init = function () {        
+        this.applyBindings();
+    };    
+
+    // Set Feedback Command Model for add / update cmd summary
+    // if childData is null or false set new empty model
+    // else load childData fields
+    CmdListModelCollection.prototype.setFeedbackCmdModel = function (childData)
+    {        
+        if (!childData) {
+            this.updating(false);
+            childData = this.getDummyFeedbackCmd();
+        }
+        else
+        {
+            this.updating(true);
+            for (var i = 0; i < this.models().length; i++) {
+                if (this.models()[i].commanD_VALUE != childData.cmD_ID()) 
+                    continue;
+                this.selectCommand(this.models()[i]);
+               if (childData.cmD_ID() == 44){ 
+                   this.comboFloorMask.addFilterField('Page', "0");   
+                   this.ComputedCmd_param(childData.cmD_PARAM()); 
+                   this.visibleFloorMap(true);
+                }else if (childData.cmD_ID() == 39) {
+                    this.comboFloorMask.addFilterField('Page', "1");
+                   this.ComputedCmd_param(childData.cmD_PARAM());
+                   this.visibleFloorMap(true);
+                }else {
+                    this.comboFloorMask.addFilterField('Page', "10");
+                    this.visibleFloorMap(false);
+                }
+            }
+        }                
+        this.load(ko.toJSON(childData));        
+    };
+
+    CmdListModelCollection.prototype.getDummyFeedbackCmd = function () {
+        var emptyModel = {
+            feedbacK_ID: -1,
+            ordeR_ID: -1,
+            delaY_TIME: 0,
+            objecT_KEY: null,
+            cmD_ID: null,
+            camerA_NAME: null,
+            duration: null,
+            prerecording: null,
+            iD_TYPE_INFO: null,
+            station: null,
+            monitor: null,
+            displaY_TYPE: null,
+            displaY_NAME: null,
+            iD_TAB: 0,
+            iD_PRESET: null,
+            preseT_NAME: null,
+            poinT1: null,
+            commanD1: null,
+            ebI_PARAM1: null,
+            ebI_VALUE1: null,
+            labeL1: null,
+            poinT2: null,
+            commanD2: null,
+            ebI_PARAM2: null,
+            ebI_VALUE2: null,
+            labeL2: null,
+            poinT3: null,
+            commanD3: null,
+            ebI_PARAM3: null,
+            ebI_VALUE3: null,
+            labeL3: null,
+            poinT4: null,
+            commanD4: null,
+            ebI_PARAM4: null,
+            ebI_VALUE4: null,
+            labeL4: null,
+            camerA_ID: null,
+            threaT_LEVEL: null,
+            cmD_PARAM: 0
+        };
+        return emptyModel;
+    };    
+        
+    CmdListModelCollection.prototype.getCollection = function () {
+        var self = this, _filterFields = new Array(),
+            _stationNumber = commonHelper.getStationNum() || 1;        
+        
+        this.ComputedID_TAB(this.cmdTab.activeTab());                               // Set ID TAB                
+
+        ko.utils.arrayForEach(self.filterFields(), function (filterField) {
+            _filterFields.push(filterField.field + ':' + filterField.value);
+        });
+
+        var dataParameters = {
+            StationNumber: _stationNumber,
+            Page: 0,
+            Count: 0,
+            SortField: 'description asc',
+            filterField: { fields: _filterFields }
+        };
+
+        $.ajax({
+            url: self.collectionUrl + 'page/?time=' + (new Date()).getTime(),
+            type: 'POST',
+            headers: { "Honeywell-Acsas-Rest-ApplicationKey": CNST_Honeywell_Acsas_Rest_ApplicationKey },
+            cache: false,
+            contentType: 'application/json',
+            dataType: 'JSON',
+            data: ko.mapping.toJSON(dataParameters),
+            async: false,
+            success: function (data) {
+                var _models = new Array();
+                ko.utils.arrayForEach(data, function (childData) {
+                    _models.push(childData);
+                });                
+                self.models(_models);                
+            },
+            error: function (xhr, textStatus, errorThrown) {
+                alert('request failed->' + textStatus);
+            }
+        });
+    };
+
+    CmdListModelCollection.prototype.resetModels = function() {
+        this.selectedObjectValue('');
+        this.selectedObjectString('');           
+        this.ComputedObjecT_KEY('');
+        this.selectedCommandValue('');
+        this.selectedCommandString('');
+        this.ComputedCmD_ID('');
+
+        this.models.removeAll();
+    }
+
+    CmdListModelCollection.prototype.afterRender = function () {
+        this.comboFloorMask.applyBindings();
+        this.cmbEbiCamera.applyBindings();        
+        this.cmbDvmCamPreset.applyBindings();
+        this.comboDisplayTypes.applyBindings();
+        this.cmbPointValue.applyBindings();
+        this.cmbDvmSendCamPreset.applyBindings();
+        this.cmbDvmStation.applyBindings();        
+        this.cmbPoint1.applyBindings();
+        this.cmbCommand1.applyBindings();
+        this.cmbPoint2.applyBindings();
+        this.cmbCommand2.applyBindings();
+        this.cmbPoint3.applyBindings();
+        this.cmbCommand3.applyBindings();
+        this.cmbPoint4.applyBindings();
+        this.cmbCommand4.applyBindings();
+
+        this.cmbThreatLevel.applyBindings();        
+    };
+
+    CmdListModelCollection.prototype.resetVisibleFields = function() {
+        // Reset visible values
+        this.visibleEBICamera(false);
+        this.visibleDisplay(false);
+        this.visiblePoint(false);
+        this.visibleThreatLevel(false);
+        this.visibleLang(false);
+       // this.ComputedDisplaY_NAME('');
+
+        this.visibleDVM(false);
+        this.visibleDVMStartEvent(false);
+        this.visibleDVMCamPresent(false);
+        this.visibleDVMSendCam(false);
+    };
+
+    CmdListModelCollection.prototype.selectCommand = function (commandData)
+    {
+        this.selectedCommandValue(commandData.commanD_VALUE);
+        this.selectedCommandString(commandData.lngDescr);
+        //this.comboFloorMask.clickValue(-1)
+        if (commandData.commanD_VALUE == 44){ //Global mask
+            this.comboFloorMask.addFilterField('Page', "0");
+            this.visibleFloorMap(true);
+        }else if(commandData.commanD_VALUE == 39) { // DOP mask
+            this.comboFloorMask.addFilterField('Page', "1");
+            this.visibleFloorMap(true);
+        }else {
+            this.comboFloorMask.clickValue(-1)
+            this.comboFloorMask.addFilterField('Page', "10");
+            this.visibleFloorMap(false);
+        }
+        this.resetVisibleFields();
+        this.ComputedCmD_ID(commandData.commanD_VALUE);        
+        this.ComputedLngDescr(commandData.lngDescr);
+        
+        if (commandData.typology == CNST_TYPOLOGY_WS) 
+        {
+            if (commandData.commanD_VALUE == IDX_EBI_CARDHOLDER_COMPWINACTIV) 
+            {                
+                this.visibleDisplay(true);
+                this.visiblePoint(true);
+                this.ComputedDisplaY_NAME('sysVideoComparison.htm?');
+            }
+            if (commandData.commanD_VALUE == IDX_EBI_DISPLAY_ACTIVATION) 
+            {                
+                this.visibleEBICamera(true);                                
+            }
+        } 
+        else if (commandData.typology == CNST_TYPOLOGY_EBI_SERVER) 
+        {
+            if (commandData.commanD_VALUE == IDX_EBI_CHANGE_THREAT_LEVEL) 
+            {
+                this.visibleThreatLevel(true);                
+                this.cmbThreatLevel.get(CNST_TL_LOW);
+            }
+        } 
+        else if (commandData.typology == CNST_TYPOLOGY_SESAMO_DEVICE) {
+            if (commandData.commanD_VALUE == 125) 
+            {
+                this.visibleLang(true);       
+            }
+        }
+        else if (commandData.typology == CNST_TYPOLOGY_DVM_CAMERA)
+        {
+            if (commandData.commanD_VALUE == CNST_DBLST_CMD_ACTIV_DVM) 
+            {
+                this.visibleDVMStartEvent(true);
+            } 
+            else if (commandData.commanD_VALUE == CNST_DBLST_CMD_DVMCAMPRESET) 
+            {
+                this.visibleDVMCamPresent(true);
+            } 
+            else if (commandData.commanD_VALUE == CNST_DBLST_CMD_SEND_DVM) 
+            {
+                this.visibleDVMSendCam(true);
+            }
+            this.visibleDVM(true);   
+            this.ComputedDuration(15);
+            this.ComputedPrerecording(30);
+            this.cmbPointValue.get(CNST_TYPEINFOFBK_DEFAULT);         
+            //this.visibleLang(true);            
+        }       
+    };
+
+    CmdListModelCollection.prototype.addCommandToFeedback = function () {
+        if (this.mainModel && this.mainModel.feedbackCmd && this.mainModel.feedbackCmd.models().length < 10) {
+            this.model.objecT_DESCRIPTION = ko.observable(this.selectedObjectString());
+            if (this.cmdTab.activeTab() === TAB_DVM) this.model.camerA_NAME = ko.observable(this.selectedObjectString());
+            this.model.iD_TAB = ko.observable(this.cmdTab.activeTab());
+            this.mainModel.feedbackCmd.addChild(ko.toJS(this.model));
+        }
+    };
+
+    CmdListModelCollection.prototype.updCommandToFeedback = function () {
+        if (this.mainModel && this.mainModel.feedbackCmd) {
+            this.mainModel.feedbackCmd.updChild(ko.toJS(this.model));
+        }
+    };
+    
+    return CmdListModelCollection;
+
+})(SelectableXLS80eCollection);
